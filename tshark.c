@@ -724,6 +724,7 @@ main(int argc, char *argv[])
   /* Set the C-language locale to the native environment. */
   setlocale(LC_ALL, "");
 
+  /*初始化cmdarg_err函数*/
   cmdarg_err_init(failure_warning_message, failure_message_cont);
 
 #ifdef _WIN32
@@ -738,6 +739,7 @@ main(int argc, char *argv[])
    * Get credential information for later use, and drop privileges
    * before doing anything else.
    * Let the user know if anything happened.
+   * 获取一些必要信息，后续可能会使用到，并打印当前用户信息
    */
   init_process_policies();
   relinquish_special_privs_perm();
@@ -774,6 +776,7 @@ main(int argc, char *argv[])
 #endif /* _WIN32 */
 
   /* Get the compile-time version information string */
+  /*获取编译时间版本信息，这个可以了解一下，可能对以后版本对称比较重要*/
   comp_info_str = get_compiled_version_info(get_tshark_compiled_version_info,
                                             epan_get_compiled_version_info);
 
@@ -796,6 +799,7 @@ main(int argc, char *argv[])
   /*
    * In order to have the -X opts assigned before the wslua machine starts
    * we need to call getopt_long before epan_init() gets called.
+   * -X参数，是一个扩展参数，主要是用于传递信息给tshark的内部模块，详细可以参考man tshark
    *
    * In order to handle, for example, -o options, we also need to call it
    * *after* epan_init() gets called, so that the dissectors have had a
@@ -879,11 +883,12 @@ main(int argc, char *argv[])
                     (GLogLevelFlags)log_flags,
                     tshark_log_handler, NULL /* user_data */);
 #endif
-
+  /*初始化report部分要调用的函数指针*/
   init_report_message(failure_warning_message, failure_warning_message,
                       open_failure_message, read_failure_message,
                       write_failure_message);
 
+  /*初始化libpcap部分，后续*/
 #ifdef HAVE_LIBPCAP
   capture_opts_init(&global_capture_opts);
   capture_session_init(&global_capture_session, &cfile);
@@ -893,6 +898,7 @@ main(int argc, char *argv[])
   timestamp_set_precision(TS_PREC_AUTO);
   timestamp_set_seconds_type(TS_SECONDS_DEFAULT);
 
+  /*初始化监听库，这个其实是非常重要的，用于cap文件的读取等，后续还需要补充*/
   wtap_init();
 
 #ifdef HAVE_PLUGINS
@@ -910,7 +916,10 @@ main(int argc, char *argv[])
   /* Register all dissectors; we must do this before checking for the
      "-G" flag, as the "-G" flag dumps information registered by the
      dissectors, and we must do it before we read the preferences, in
-     case any dissectors register preferences. */
+     case any dissectors register preferences. 
+     注册所有的解析器，在这里注册是为了可能启用-G参数，-G是tshark打印解析信息的参数，
+     只打印，完成后立马退出，详细参看tshark -G ?
+     */
   if (!epan_init(register_all_protocols, register_all_protocol_handoffs, NULL,
                  NULL)) {
     exit_status = INIT_FAILED;
@@ -929,7 +938,7 @@ main(int argc, char *argv[])
 #ifdef HAVE_EXTCAP
   extcap_register_preferences();
 #endif
-  register_all_tap_listeners();
+  register_all_tap_listeners();/*不太了解tap listeners是什么意思，看着像是用于打印一些协议信息*/
   conversation_table_set_gui_info(init_iousers);
   hostlist_table_set_gui_info(init_hostlists);
   srt_table_iterate_tables(register_srt_tables, NULL);
