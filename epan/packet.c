@@ -477,6 +477,7 @@ final_registration_all_protocols(void)
 
 
 /* Creates the top-most tvbuff and calls dissect_frame() */
+/* 调用最顶层的dissect_frame，由他逐步转移到上层协议解析*/
 void
 dissect_record(epan_dissect_t *edt, int file_type_subtype,
     struct wtap_pkthdr *phdr, tvbuff_t *tvb, frame_data *fd, column_info *cinfo)

@@ -114,10 +114,12 @@ WS_DLL_PUBLIC
 void epan_cleanup(void);
 
 /**
+ * 初始化流管理模块，
  * Initialize the table of conversations.  Conversations are identified by
  * their endpoints; they are used for protocols such as IP, TCP, and UDP,
  * where packets contain endpoint information but don't contain a single
  * value indicating to which flow the packet belongs.
+ * 单个包虽然包含了endpoint，但是没有信息标识出属于那条流，所以用conversation模块记录
  */
 void epan_conversation_init(void);
 
@@ -130,6 +132,8 @@ void epan_conversation_init(void);
  * conversations and circuit ID-specified circuits, so we can attach
  * information either to a circuit or a conversation with common
  * code.
+ * Circuit ID，一般是指代在协议中添加固定数据来标识这个包的所属信息，
+ * 一般在电话交换机等中有使用，具体可以参考https://en.wikipedia.org/wiki/Circuit_ID
  */
 void epan_circuit_init(void);
 void epan_circuit_cleanup(void);
@@ -137,9 +141,13 @@ void epan_circuit_cleanup(void);
 /** A client will create one epan_t for an entire dissection session.
  * A single epan_t will be used to analyze the entire sequence of packets,
  * sequentially, in a single session. A session corresponds to a single
- * packet trace file. The reasons epan_t exists is that some packets in
+ * packet trace file（一条会话相当于一个单包跟踪文件？应该是说会话相当于一个有序的包文件）. 
+ * The reasons epan_t exists is that some packets in
  * some protocols cannot be decoded without knowledge of previous packets.
  * This inter-packet "state" is stored in the epan_t.
+ * 为单独的会话创建epan_t，用来解析内部数据，因为有些协议必须关联前期数据，
+ * 才能解析出后续的数据内容。
+ * 具体哪些协议后续补充
  */
 typedef struct epan_session epan_t;
 
@@ -175,7 +183,7 @@ WS_DLL_PUBLIC
 void
 epan_dissect_init(epan_dissect_t *edt, epan_t *session, const gboolean create_proto_tree, const gboolean proto_tree_visible);
 
-/** get a new single packet dissection
+/** get a new single packet dissection 获取一个新的单包解析器
  * should be freed using epan_dissect_free() after packet dissection completed
  */
 WS_DLL_PUBLIC
@@ -192,6 +200,9 @@ void
 epan_dissect_fake_protocols(epan_dissect_t *edt, const gboolean fake_protocols);
 
 /** run a single packet dissection */
+/*运行单包解析器，具体with_taps具体原因还需确认补充，tap在wireshark中用来标识协议跟踪的
+ * 因为单个包解析以后，有些数据不能保存，该条流的下一个包过来可能需要，就利用tap机制，
+ * 将需要的数据enquene到tap中，后续使用*/
 WS_DLL_PUBLIC
 void
 epan_dissect_run(epan_dissect_t *edt, int file_type_subtype,
@@ -204,7 +215,7 @@ epan_dissect_run_with_taps(epan_dissect_t *edt, int file_type_subtype,
         struct wtap_pkthdr *phdr, tvbuff_t *tvb, frame_data *fd,
         struct epan_column_info *cinfo);
 
-/** run a single file packet dissection */
+/** run a single file packet dissection 运行单文件包解析器，应该是会话解析器--需确认*/
 WS_DLL_PUBLIC
 void
 epan_dissect_file_run(epan_dissect_t *edt, struct wtap_pkthdr *phdr,
@@ -215,6 +226,7 @@ void
 epan_dissect_file_run_with_taps(epan_dissect_t *edt, struct wtap_pkthdr *phdr,
         tvbuff_t *tvb, frame_data *fd, struct epan_column_info *cinfo);
 
+/*以下是proto_tree的填充方式，用dfilter/hfid/hfid_array等*/
 /** Prime an epan_dissect_t's proto_tree using the fields/protocols used in a dfilter. */
 WS_DLL_PUBLIC
 void

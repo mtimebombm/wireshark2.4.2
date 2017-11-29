@@ -727,6 +727,7 @@ typedef struct file_data_s
 
 /*
  * Dissectors should never modify the record data.
+ * 协议解析器入口，由此调用dissect_frame
  */
 extern void dissect_record(struct epan_dissect *edt, int file_type_subtype,
     struct wtap_pkthdr *phdr, tvbuff_t *tvb,
