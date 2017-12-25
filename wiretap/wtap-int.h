@@ -43,14 +43,15 @@ typedef gboolean (*subtype_seek_read_func)(struct wtap*, gint64,
 
 /**
  * Struct holding data of the currently read file.
+ * 用来记录当前正在读取的文件的数据信息，文件的读取、cap信息存放都是在这个结构中记录的
  */
 struct wtap {
     FILE_T                      fh;
-    FILE_T                      random_fh;              /**< Secondary FILE_T for random access */
-    int                         file_type_subtype;
+    FILE_T                      random_fh;              /**< Secondary FILE_T for random access perform_two_pass_analysis开始的时候有效*/
+    int                         file_type_subtype;/*文件类型，一般是在文件打开函数中赋值，例如netxray_open中*/
     guint                       snapshot_length;
-    struct Buffer               *frame_buffer;
-    struct wtap_pkthdr          phdr;
+    struct Buffer               *frame_buffer;   /*存放读取到的cap包内容，指针内存是在Wtap_open_offline创建的*/
+    struct wtap_pkthdr          phdr;            /*存放每个包的头信息，例如sniffer中每个包都有简单的头信息，如长度等*/
     GArray                      *shb_hdrs;
     GArray                      *interface_data;        /**< An array holding the interface data from pcapng IDB:s or equivalent(?)*/
     GArray                      *nrb_hdrs;              /**< holds the Name Res Block's comment/custom_opts, or NULL */

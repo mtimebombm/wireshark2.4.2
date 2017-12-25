@@ -152,10 +152,10 @@ epan_init(void (*register_all_protocols_func)(register_cb cb, gpointer client_da
 	volatile gboolean status = TRUE;
 
 	/* initialize memory allocation subsystem */
-	wmem_init();
+	wmem_init();/*初始化内存管理模块*/
 
 	/* initialize the GUID to name mapping table */
-	guids_init();
+	guids_init();/*GUID模块，暂不了解*/
 
 	/* initialize name resolution (addr_resolv.c) */
 	addr_resolv_init();
@@ -177,17 +177,17 @@ epan_init(void (*register_all_protocols_func)(register_cb cb, gpointer client_da
 	LIBXML_TEST_VERSION;
 #endif
 	TRY {
-		tap_init();
+		tap_init();/*跟踪器初始化*/
 		prefs_init();
 		expert_init();
 		packet_init();
-		conversation_init();
-		capture_dissector_init();
+		conversation_init();/*流管理模块初始化*/
+		capture_dissector_init();/*协议解析模块初始化*/
 		reassembly_tables_init();
 		proto_init(register_all_protocols_func, register_all_handoffs_func,
-		    cb, client_data);
+		    cb, client_data);/*解析器处着*/
 		packet_cache_proto_handles();
-		dfilter_init();
+		dfilter_init();/*display filter模块初始化*/
 		final_registration_all_protocols();
 		print_cache_field_handles();
 		expert_packet_init();

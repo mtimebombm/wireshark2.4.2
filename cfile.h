@@ -73,7 +73,7 @@ typedef struct _capture_file {
   gboolean     stop_flag;            /* Stop current processing (loading, searching, etc.) */
 
   gint64       f_datalen;            /* Size of capture file data (uncompressed) */
-  guint16      cd_t;                 /* File type of capture file */
+  guint16      cd_t;                 /* File type of capture file 文件类型，在cf_open中赋值，即wth->file_type_subtype*/
   unsigned int open_type;            /* open_routine index+1 used, if selected, or WTAP_TYPE_AUTO */
   gboolean     iscompressed;         /* TRUE if the file is compressed */
   int          lnk_t;                /* File link-layer type; could be WTAP_ENCAP_PER_PACKET */

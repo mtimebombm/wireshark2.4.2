@@ -3398,6 +3398,9 @@ out:
   return success;
 }
 
+/*
+ *数据处理函数，whdr是包的信息，pd可以认为是packet_data，指向的真是数据
+ * */
 static gboolean
 process_packet_single_pass(capture_file *cf, epan_dissect_t *edt, gint64 offset,
                            struct wtap_pkthdr *whdr, const guchar *pd,
