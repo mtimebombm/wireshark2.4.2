@@ -233,7 +233,7 @@ dissect_ethertype(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
 
 	/* Get the captured length and reported length of the data
 	   after the Ethernet type. */
-	captured_length = tvb_captured_length_remaining(tvb, ethertype_data->offset_after_ethertype);
+	captured_length = tvb_captured_length_remaining(tvb, ethertype_data->offset_after_ethertype);/*offset_after_ethertype为以太网头长度14*/
 	reported_length = tvb_reported_length_remaining(tvb,
 							ethertype_data->offset_after_ethertype);
 
@@ -254,7 +254,8 @@ dissect_ethertype(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
 				captured_length = reported_length;
 		}
 	}
-	next_tvb = tvb_new_subset_length_caplen(tvb, ethertype_data->offset_after_ethertype, captured_length,
+	/*创建一个新的tvb，tvb所指向的real_data是老tvb->real_data+offset_after_ethertype*/
+	next_tvb = tvb_new_subset_length_caplen(tvb, ethertype_data->offset_after_ethertype, captured_length,/*offset_after_ethertype为以太网头长度14*/
 				  reported_length);
 
 	p_add_proto_data(pinfo->pool, pinfo, proto_ethertype, pinfo->curr_layer_num, GUINT_TO_POINTER((guint)ethertype_data->etype));

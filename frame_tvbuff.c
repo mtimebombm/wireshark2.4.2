@@ -208,7 +208,7 @@ frame_tvbuff_new(const frame_data *fd, const guint8 *buf)
 
 	tvb->real_data       = buf;
 	tvb->length          = fd->cap_len;
-	tvb->reported_length = fd->pkt_len > G_MAXINT ? G_MAXINT : fd->pkt_len;
+	tvb->reported_length = fd->pkt_len > G_MAXINT ? G_MAXINT : fd->pkt_len;/*report_length可以暂时不用关注，主要是用于输出*/
 	tvb->initialized     = TRUE;
 
 	/*

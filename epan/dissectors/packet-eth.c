@@ -527,13 +527,13 @@ dissect_eth_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree,
     proto_tree_add_item(addr_tree, hf_eth_ig, tvb, 6, 3, ENC_BIG_ENDIAN);
 
     ethertype_data.etype = ehdr->type;
-    ethertype_data.offset_after_ethertype = ETH_HEADER_SIZE;
+    ethertype_data.offset_after_ethertype = ETH_HEADER_SIZE;/*标记以太层的头长度，为14*/
     ethertype_data.fh_tree = fh_tree;
     ethertype_data.etype_id = hf_eth_type;
     ethertype_data.trailer_id = hf_eth_trailer;
     ethertype_data.fcs_len = fcs_len;
 
-    call_dissector_with_data(ethertype_handle, tvb, pinfo, parent_tree, &ethertype_data);
+    call_dissector_with_data(ethertype_handle, tvb, pinfo, parent_tree, &ethertype_data);/*直接通过handle调用dissect_ethertype*/
   }
   return fh_tree;
 }

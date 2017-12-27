@@ -142,7 +142,12 @@ tvb_new_with_subset(tvbuff_t *backing, const gint reported_length,
 
 	return tvb;
 }
-
+/*
+ * @backing为上一个tvb的指针
+ * @backing_offset为上一个tvb指向的数据需要再偏移offset位为下一个tvb的开始
+ * @backing_length为上一个tvb的payload数据的长度
+ *
+ * */
 tvbuff_t *
 tvb_new_subset_length_caplen(tvbuff_t *backing, const gint backing_offset, const gint backing_length, const gint reported_length)
 {

@@ -485,7 +485,7 @@ dissect_record(epan_dissect_t *edt, int file_type_subtype,
 	const char *volatile record_type;
 	frame_data_t frame_dissector_data;
 
-	switch (phdr->rec_type) {
+	switch (phdr->rec_type) {/*ftp_all_cmd.cap中在netxray_process_read中赋值为REC_TYPE_PACKET*/
 
 	case REC_TYPE_PACKET:
 		record_type = "Frame";
@@ -564,7 +564,9 @@ dissect_record(epan_dissect_t *edt, int file_type_subtype,
 		/* Even though dissect_frame() catches all the exceptions a
 		 * sub-dissector can throw, dissect_frame() itself may throw
 		 * a ReportedBoundsError in bizarre cases. Thus, we catch the exception
-		 * in this function. */
+		 * in this function. 
+		 * 调用frame_handle解析器，这是top_level解析器，基本都要走这个
+		 * */
 		call_dissector_with_data(frame_handle, edt->tvb, &edt->pi, edt->tree, &frame_dissector_data);
 	}
 	CATCH(BoundsError) {

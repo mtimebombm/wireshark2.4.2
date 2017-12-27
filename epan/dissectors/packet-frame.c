@@ -518,6 +518,11 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 					    tvb, pinfo, parent_tree,
 					    (void *)pinfo->pseudo_header);
 				} else {
+					/* ftp_all_cmd.cap中调用该dissector_table，他是在proto_reg_handoff_eth中创建的，
+					 * 不同于传统的注册的方式，是直接创建而成的，
+					 * 在packet-eth.c中通过dissector_add_uint("wtap_encap", WTAP_ENCAP_ETHERNET, eth_handle);
+					 * 注册，当pinfo->pkt_encap为1时，调用eth_handle,即dissect_eth
+					 * */
 					if (!dissector_try_uint_new(wtap_encap_dissector_table,
 					    pinfo->pkt_encap, tvb, pinfo,
 					    parent_tree, TRUE,

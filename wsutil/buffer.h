@@ -32,7 +32,7 @@ extern "C" {
 #define SOME_FUNCTIONS_ARE_DEFINES
 
 typedef struct Buffer {
-	guint8	*data;
+	guint8	*data;/*记录cap包，ws_buffer_init创建其内存*/
 	gsize	allocated;
 	gsize	start;
 	gsize	first_free;

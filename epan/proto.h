@@ -627,20 +627,23 @@ typedef struct _header_field_info header_field_info;
 /** information describing a header field */
 struct _header_field_info {
 	/* ---------- set by dissector --------- */
-	const char		*name;              /**< [FIELDNAME] full name of this field */
-	const char		*abbrev;            /**< [FIELDABBREV] abbreviated name of this field */
-	enum ftenum		 type;              /**< [FIELDTYPE] field type, one of FT_ (from ftypes.h) */
-	int			 display;           /**< [FIELDDISPLAY] one of BASE_, or field bit-width if FT_BOOLEAN and non-zero bitmask */
+	const char		*name;              /**< [FIELDNAME] full name of this field 参数全称*/
+	const char		*abbrev;            /**< [FIELDABBREV] abbreviated name of this field 参数的简写名称，用于过滤*/
+	enum ftenum		 type;              /**< [FIELDTYPE] field type, one of FT_ (from ftypes.h) 参数的数据类型*/
+	int			 display;           /**< [FIELDDISPLAY] one of BASE_, or field bit-width if FT_BOOLEAN and non-zero bitmask 
+											参数的显示方式*/
 	const void		*strings;           /**< [FIELDCONVERT] value_string, val64_string, range_string or true_false_string,
 				                         typically converted by VALS(), RVALS() or TFS().
 				                         If this is an FT_PROTOCOL or BASE_PROTOCOL_INFO then it points to the
-				                         associated protocol_t structure */
-	guint64			 bitmask;           /**< [BITMASK] bitmask of interesting bits */
-	const char		*blurb;             /**< [FIELDDESCR] Brief description of field */
+				                         associated protocol_t structure 
+										 参数格式化对照表例如response_table_ext,用于将显示的东西更易于翻译展现
+										 但是如果是这个hfinfo是指向的一个协议，则strings表示协议protocol_t地址用于快速查找*/
+	guint64			 bitmask;           /**< [BITMASK] bitmask of interesting bits 参数掩码，不足一个字节的参数需要使用，如tcp的flag标记*/
+	const char		*blurb;             /**< [FIELDDESCR] Brief description of field 参数的简短描述*/
 
 	/* ------- set by proto routines (prefilled by HFILL macro, see below) ------ */
-	int			 id;                /**< Field ID */
-	int			 parent;            /**< parent protocol tree */
+	int			 id;                /**< Field ID id号，代表在gpa_hfinfo数组里面的下标*/
+	int			 parent;            /**< parent protocol tree 所属的协议的hfinfo 的id号*/
 	hf_ref_type		 ref_type;          /**< is this field referenced by a filter */
 	int			 same_name_prev_id; /**< ID of previous hfinfo with same abbrev */
 	header_field_info	*same_name_next;    /**< Link to next hfinfo with same abbrev */
