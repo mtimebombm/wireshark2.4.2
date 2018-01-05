@@ -8795,6 +8795,9 @@ done_decryption:
 	return offset;
 }
 
+/*
+ * smb命令解析
+ * */
 static int
 dissect_smb2_command(packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb, int offset, smb2_info_t *si)
 {
@@ -8921,7 +8924,9 @@ dissect_smb2_tid_sesid(packet_info *pinfo _U_, proto_tree *tree, tvbuff_t *tvb, 
 
 	return offset;
 }
-
+/*
+ * smb2协议解析，实际包含的是smb v2 v3版本的解析
+ * */
 static int
 dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolean first_in_chain)
 {
@@ -8942,10 +8947,14 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 	smb2_eo_file_info_t *eo_file_info;
 	e_ctx_hnd	    *policy_hnd_hashtablekey;
 
+	/*创建协议解析私有数据，后续会放到对应的会话中*/
 	sti = wmem_new(wmem_packet_scope(), smb2_transform_info_t);
 	si  = wmem_new0(wmem_packet_scope(), smb2_info_t);
 	si->top_tree = parent_tree;
 
+	/*
+	 * 是否是TRANSFORM_HEADER类型，加密信息。具体见：https://msdn.microsoft.com/en-us/library/hh880787.aspx
+	 * */
 	if (tvb_get_guint8(tvb, 0) == 0xfd) {
 		smb2_transform_header = TRUE;
 		label = smb_transform_header_label;
@@ -8977,12 +8986,13 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 		 * hash table so we wouldn't have to do this. */
 		wmem_register_callback(wmem_file_scope(), smb2_conv_destroy,
 				si->conv);
-
+		/*将创建的协议信息放到对应的会话中*/
 		conversation_add_proto_data(conversation, proto_smb2, si->conv);
 	}
 
 	sti->conv = si->conv;
 
+	/*设置wireshark界面列信息，可以忽略*/
 	col_set_str(pinfo->cinfo, COL_PROTOCOL, "SMB2");
 	if (first_in_chain) {
 		/* first packet */
@@ -8991,35 +9001,38 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 		col_append_str(pinfo->cinfo, COL_INFO, ";");
 	}
 
+	/*在协议树上添加SMB2 item，跟其他的协议参数是一样的方式*/
 	item = proto_tree_add_item(parent_tree, proto_smb2, tvb, offset, -1, ENC_NA);
+	/*创建子树，后续所有的协议解析内容都放到该子树下，便于界面折叠展现*/
 	tree = proto_item_add_subtree(item, ett_smb2);
 
+	/*创建SMB2 Header子树*/
 	header_tree = proto_tree_add_subtree(tree, tvb, offset, -1, ett_smb2_header, &header_item, label);
 
 	/* Decode the header */
 
 	if (!smb2_transform_header) {
-		/* SMB2 marker */
+		/* SMB2 marker  header_tree上添加元素smb2.server_component_smb2为"Server Component: SMB2"，此时并未读取包内容做填充*/
 		proto_tree_add_item(header_tree, hf_smb2_server_component_smb2, tvb, offset, 4, ENC_NA);
-		offset += 4;
+		offset += 4;/*头四个字节已经读完，更改游标*/
 
-		/* we need the flags before we know how to parse the credits field */
+		/* we need the flags before we know how to parse the credits field 获取flag信息*/
 		si->flags = tvb_get_letohl(tvb, offset+12);
 
-		/* header length */
+		/* header length 获取header_len并放到协议树上*/
 		proto_tree_add_item(header_tree, hf_smb2_header_len, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 		offset += 2;
 
-		/* credit charge (previously "epoch" (unused) which has been deprecated as of "SMB 2.1") */
+		/* credit charge (previously "epoch" (unused) which has been deprecated as of "SMB 2.1") 获取credit_charge*/
 		proto_tree_add_item(header_tree, hf_smb2_credit_charge, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 		offset += 2;
 
 		/* Status Code */
-		if (si->flags & SMB2_FLAGS_RESPONSE) {
+		if (si->flags & SMB2_FLAGS_RESPONSE) {/*如果是响应包，则显示nt status参数*/
 			si->status = tvb_get_letohl(tvb, offset);
 			proto_tree_add_item(header_tree, hf_smb2_nt_status, tvb, offset, 4, ENC_LITTLE_ENDIAN);
 			offset += 4;
-		} else {
+		} else {/*如果不是响应包，则将nt_status拆分为两个参数channel sequence 和reserved*/
 			si->status = 0;
 			proto_tree_add_item(header_tree, hf_smb2_channel_sequence, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 			offset += 2;
@@ -9027,7 +9040,7 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 			offset += 2;
 		}
 
-		/* opcode */
+		/* opcode 获取command*/
 		si->opcode = tvb_get_letohs(tvb, offset);
 		proto_tree_add_item(header_tree, hf_smb2_cmd, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 		offset += 2;
@@ -9040,7 +9053,7 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 		}
 		offset += 2;
 
-		/* flags */
+		/* flags 展现flag信息*/
 		if (header_tree) {
 			static const int * flags[] = {
 				&hf_smb2_flags_response,
@@ -9059,7 +9072,7 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 
 		offset += 4;
 
-		/* Next Command */
+		/* Next Command smb协议规定smb头可以包含多个子包，这里就是用chain_offset来标记下一个包头的偏移量，一般只带一个包头，若有多个，直接在后续调用解析器再次解析*/
 		chain_offset = tvb_get_letohl(tvb, offset);
 		proto_tree_add_item(header_tree, hf_smb2_chain_offset, tvb, offset, 4, ENC_BIG_ENDIAN);
 		offset += 4;
@@ -9070,17 +9083,17 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 		proto_tree_add_item(header_tree, hf_smb2_msg_id, tvb, offset, 8, ENC_LITTLE_ENDIAN);
 		offset += 8;
 
-		/* Tree ID and Session ID */
+		/* Tree ID and Session ID 解析process id 和tree id*/
 		offset = dissect_smb2_tid_sesid(pinfo, header_tree, tvb, offset, si);
 
 		/* Signature */
 		proto_tree_add_item(header_tree, hf_smb2_signature, tvb, offset, 16, ENC_NA);
 		offset += 16;
 
-		proto_item_set_len(header_item, offset);
+		proto_item_set_len(header_item, offset);/*标记header_item这个子树的长度，用于在wireshark中点击SMB2 Header子树时直接显示出其对应的16进制范围*/
 
 
-		col_append_fstr(pinfo->cinfo, COL_INFO, "%s %s",
+		col_append_fstr(pinfo->cinfo, COL_INFO, "%s %s"	,
 				decode_smb2_name(si->opcode),
 				(si->flags & SMB2_FLAGS_RESPONSE)?"Response":"Request");
 		if (si->status) {
@@ -9091,8 +9104,9 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 		}
 
 
-		if (!pinfo->fd->flags.visited) {
-			/* see if we can find this msg_id in the unmatched table */
+		if (!pinfo->fd->flags.visited) {/*如果这个包没有被读取过，则进入下面处理逻辑,fd为frame_data数据结构*/
+			/* see if we can find this msg_id in the unmatched table 
+			 * smb分为请求和响应，所以在smb2_conv_info_t中有matched和unmatched两个table，用于记录对应关系*/
 			ssi = (smb2_saved_info_t *)g_hash_table_lookup(si->conv->unmatched, &ssi_key);
 
 			if (!(si->flags & SMB2_FLAGS_RESPONSE)) {
@@ -9101,6 +9115,8 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 					/* this is a request and we already found
 					* an older ssi so just delete the previous
 					* one
+					* 如果请求包已经在链表中存在（重复请求），则删掉之前的
+					* ssi置为了NULL，则在下面还会创建并插入当前的
 					*/
 					g_hash_table_remove(si->conv->unmatched, ssi);
 					ssi = NULL;
@@ -9122,8 +9138,10 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 				if (!((si->flags & SMB2_FLAGS_ASYNC_CMD)
 					&& si->status == NT_STATUS_PENDING)
 					&& ssi) {
-					/* just  set the response frame and move it to the matched table */
-					ssi->frame_res = pinfo->num;
+					/* just  set the response frame and move it to the matched table 
+					 * 如果是响应包，并且在unmatched中能够找到，则标记ssi->frame_res为响应包的num
+					 * 并将其从unmatched移动到matched中*/
+					ssi->frame_res = pinfo->num;/*在wireshark中，请求包的header中会有"Response to"参数标记响应包位置，即这里记录的*/
 					g_hash_table_remove(si->conv->unmatched, ssi);
 					g_hash_table_insert(si->conv->matched, ssi, ssi);
 				}
@@ -9141,7 +9159,9 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 
 		if (ssi) {
 			if (dcerpc_fetch_polhnd_data(&ssi->policy_hnd, &fid_name, NULL, &open_frame, &close_frame, pinfo->num)) {
-				/* If needed, create the file entry and save the policy hnd */
+				/* If needed, create the file entry and save the policy hnd 
+				 * 用于记录文件信息
+				 * */
 				if (!si->eo_file_info) {
 					if (si->conv) {
 						eo_file_info = (smb2_eo_file_info_t *)g_hash_table_lookup(si->conv->files,&ssi->policy_hnd);
@@ -9161,7 +9181,7 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 			if (!(si->flags & SMB2_FLAGS_RESPONSE)) {
 				if (ssi->frame_res) {
 					proto_item *tmp_item;
-					tmp_item = proto_tree_add_uint(header_tree, hf_smb2_response_in, tvb, 0, 0, ssi->frame_res);
+					tmp_item = proto_tree_add_uint(header_tree, hf_smb2_response_in, tvb, 0, 0, ssi->frame_res);/*显示请求包的响应包位置*/
 					PROTO_ITEM_SET_GENERATED(tmp_item);
 				}
 			} else {
@@ -9169,10 +9189,11 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 					proto_item *tmp_item;
 					nstime_t    t, deltat;
 
-					tmp_item = proto_tree_add_uint(header_tree, hf_smb2_response_to, tvb, 0, 0, ssi->frame_req);
+					tmp_item = proto_tree_add_uint(header_tree, hf_smb2_response_to, tvb, 0, 0, ssi->frame_req);/*显示响应包是相应的哪个请求包的*/
 					PROTO_ITEM_SET_GENERATED(tmp_item);
 					t = pinfo->abs_ts;
 					nstime_delta(&deltat, &t, &ssi->req_time);
+					/*计算一下响应时间*/
 					tmp_item = proto_tree_add_time(header_tree, hf_smb2_time, tvb,
 					0, 0, &deltat);
 					PROTO_ITEM_SET_GENERATED(tmp_item);
