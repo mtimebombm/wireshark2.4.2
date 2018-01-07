@@ -6665,7 +6665,10 @@ dissect_smb2_ioctl_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 	return offset;
 }
 
-
+/* 
+ * smb中read请求解析函数，在示例win10-centos7-copy_ftp_all_cmd_cap.pcapng中，主要是有read操作
+ * 需要重点关注
+ * */
 static int
 dissect_smb2_read_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset, smb2_info_t *si)
 {
@@ -8812,6 +8815,8 @@ dissect_smb2_command(packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb, int of
 			(si->flags & SMB2_FLAGS_RESPONSE)?"Response":"Request",
 			si->opcode);
 
+	/* 根据opcode来选择要执行的函数，做的非常精巧，与传统的switch更为精简、统一
+	 * */
 	cmd_dissector = (si->flags & SMB2_FLAGS_RESPONSE)?
 		smb2_dissector[si->opcode&0xff].response:
 		smb2_dissector[si->opcode&0xff].request;
@@ -8822,6 +8827,7 @@ dissect_smb2_command(packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb, int of
 		offset = tvb_captured_length(tvb);
 	}
 
+	/*设置cmd item的长度，用于wireshark更好的展示，可以忽略*/
 	proto_item_set_len(cmd_item, offset-old_offset);
 
 	return offset;
@@ -8947,8 +8953,8 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 	smb2_eo_file_info_t *eo_file_info;
 	e_ctx_hnd	    *policy_hnd_hashtablekey;
 
-	/*创建协议解析私有数据，后续会放到对应的会话中*/
-	sti = wmem_new(wmem_packet_scope(), smb2_transform_info_t);
+	/*协议信息结构，用于后续解析*/
+	sti = wmem_new(wmem_packet_scope(), smb2_transform_info_t);/*smb3的时候才会用到*/
 	si  = wmem_new0(wmem_packet_scope(), smb2_info_t);
 	si->top_tree = parent_tree;
 
@@ -8962,9 +8968,9 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 	/* find which conversation we are part of and get the data for that
 	 * conversation
 	 */
-	conversation = find_or_create_conversation(pinfo);
-	si->conv = (smb2_conv_info_t *)conversation_get_proto_data(conversation, proto_smb2);
-	if (!si->conv) {
+	conversation = find_or_create_conversation(pinfo);/*查找所在会话*/
+	si->conv = (smb2_conv_info_t *)conversation_get_proto_data(conversation, proto_smb2);/*提取存储在会话中的私有信息*/
+	if (!si->conv) {/*如果是第一次进入smb，则创建会话的smb私有信息*/
 		/* no smb2_into_t structure for this conversation yet,
 		 * create it.
 		 */
@@ -8983,7 +8989,9 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 
 		/* Bit of a hack to avoid leaking the hash tables - register a
 		 * callback to free them. Ideally wmem would implement a simple
-		 * hash table so we wouldn't have to do this. */
+		 * hash table so we wouldn't have to do this. 
+		 * 注册回调函数，用于私有数据的释放
+		 * */
 		wmem_register_callback(wmem_file_scope(), smb2_conv_destroy,
 				si->conv);
 		/*将创建的协议信息放到对应的会话中*/
@@ -9090,9 +9098,11 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 		proto_tree_add_item(header_tree, hf_smb2_signature, tvb, offset, 16, ENC_NA);
 		offset += 16;
 
-		proto_item_set_len(header_item, offset);/*标记header_item这个子树的长度，用于在wireshark中点击SMB2 Header子树时直接显示出其对应的16进制范围*/
+		/*至此，smb header解析完成，标记header_item这个子树的长度，用于在wireshark中点击SMB2 Header子树时直接显示出其对应的16进制范围，这个在协议解析中是用不到的*/
+		proto_item_set_len(header_item, offset);
 
 
+		/*更新列信息*/
 		col_append_fstr(pinfo->cinfo, COL_INFO, "%s %s"	,
 				decode_smb2_name(si->opcode),
 				(si->flags & SMB2_FLAGS_RESPONSE)?"Response":"Request");
@@ -9104,7 +9114,11 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 		}
 
 
-		if (!pinfo->fd->flags.visited) {/*如果这个包没有被读取过，则进入下面处理逻辑,fd为frame_data数据结构*/
+		/* 如果这个包没有被读取过，则进入下面处理逻辑,fd为frame_data数据结构
+		 * 从代码逻辑来看，一般都是在dissect_record中全部调用完成以后才会置为1
+		 * 所以此时一般都是0，会走入代码逻辑
+		 * */
+		if (!pinfo->fd->flags.visited) {
 			/* see if we can find this msg_id in the unmatched table 
 			 * smb分为请求和响应，所以在smb2_conv_info_t中有matched和unmatched两个table，用于记录对应关系*/
 			ssi = (smb2_saved_info_t *)g_hash_table_lookup(si->conv->unmatched, &ssi_key);
@@ -9127,9 +9141,9 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 					* if was a request we are decoding
 					*/
 					ssi                  = wmem_new0(wmem_file_scope(), smb2_saved_info_t);
-					ssi->msg_id          = ssi_key.msg_id;
-					ssi->frame_req       = pinfo->num;
-					ssi->req_time        = pinfo->abs_ts;
+					ssi->msg_id          = ssi_key.msg_id;/*message ID，smb中请求和响应的M ID都是一样的*/
+					ssi->frame_req       = pinfo->num;/*记录请求包的包序号*/
+					ssi->req_time        = pinfo->abs_ts;/*记录请求包的时间，可以用于计算响应速度*/
 					ssi->extra_info_type = SMB2_EI_NONE;
 					g_hash_table_insert(si->conv->unmatched, ssi, ssi);
 				}
@@ -9143,7 +9157,7 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 					 * 并将其从unmatched移动到matched中*/
 					ssi->frame_res = pinfo->num;/*在wireshark中，请求包的header中会有"Response to"参数标记响应包位置，即这里记录的*/
 					g_hash_table_remove(si->conv->unmatched, ssi);
-					g_hash_table_insert(si->conv->matched, ssi, ssi);
+					g_hash_table_insert(si->conv->matched, ssi, ssi);/*matched链表会不会一直增长？*/
 				}
 			}
 		} else {
@@ -9211,7 +9225,7 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 
 		tap_queue_packet(smb2_tap, pinfo, si);
 
-		/* Decode the payload */
+		/* Decode the payload 解析完smb头部，开始解析payload信息*/
 		offset                = dissect_smb2_command(pinfo, tree, tvb, offset, si);
 	} else {
 		proto_tree *enc_tree;
